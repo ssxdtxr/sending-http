@@ -1,0 +1,58 @@
+ТЗ учебного проекта: сервис отправки безопасных http-запросов
+
+Цель
+	Сервис проверяет домен адресата по спискам и отправляет HTTP-запрос, если домен разрешён.
+
+Списки доменов
+	Белый список — статус Allowed — запрос разрешён.
+	Чёрный список — статус Banned — запрос запрещён, возвращается 403.
+	Серый список - домен не записан в БД, считаем, что он в белом списке.	
+
+Правила
+	- Домен должен быть минимум 2-го уровня.
+	- IP-адреса запрещены.
+	- Статус определяется по самому длинному совпавшему родительскому домену: например, 
+	  sub.example.com в белом списке, example.com в черном списке. Вызов на https://chat.sub.example.com/
+	  разрешен (ближайший домен в белом списке). Вызов на https://chat.example.com/ - запрещен (ближайший домен в черном списке).
+	  То есть Banned example.com не блокирует поддомены, у которых есть более конкретное белое правило уровнем выше
+	- Домен не может одновременно находиться в чёрном и белом списке.
+
+Модель данных
+	Domain: id, name, status (Banned / Allowed), comment, responsible.
+
+Функции
+CRUD доменов для белого и чёрного списков:
+	создание;
+	чтение: список с фильтром по имени/статусу и пагинацией;
+	изменение;
+	удаление.
+	
+Проверка домена:
+	по имени или URL вернуть статус: Allowed / Banned.
+
+Отправка запроса:
+	метод, URL, тело, заголовки, cookie, timeout;
+	если Banned — ошибка 403;
+	если Allowed — выполнить запрос и вернуть HTTP-статус, тело и заголовки.
+
+API
+	GET    /api/allowed-domains?name=&page=&limit=
+	POST   /api/allowed-domains
+	PUT    /api/allowed-domains/{id}
+	DELETE /api/allowed-domains/{id}
+
+	GET    /api/banned-domains?name=&page=&limit=
+	POST   /api/banned-domains
+	PUT    /api/banned-domains/{id}
+	DELETE /api/banned-domains/{id}
+
+	GET    /api/domains/status?name=sub.example.com
+	POST   /api/requests
+
+Архитектура:
+
+	domain/models — Domain, Request, Response;
+	domain/services — DomainService, RequestService;
+	domain/ports — DomainPort, RequestPort;
+	adapters — БД доменов, HTTP-клиент;
+	handlers
