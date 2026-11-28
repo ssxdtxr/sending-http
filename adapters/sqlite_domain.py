@@ -1,6 +1,7 @@
 from contextlib import closing
 from dataclasses import replace
 from sqlite3 import SQLITE_CONSTRAINT_UNIQUE, Connection, IntegrityError, Row
+from threading import Lock
 
 from domain.models.domain import Domain, DomainStatus
 from domain.models.filter import FilterDomain
@@ -13,6 +14,7 @@ class SQLiteDomainAdapter(DomainPort):
 
     def __init__(self, connection: Connection) -> None:
         self._connection = connection
+        self._lock = Lock()
 
     def create(self, domain: Domain) -> Domain:
         """Сохранить домен и вернуть его с присвоенным ID.
@@ -21,6 +23,7 @@ class SQLiteDomainAdapter(DomainPort):
         Если имя уже занято, вызвать DomainAlreadyExists.
         """
         with (
+            self._lock,
             self._connection,
             closing(self._connection.cursor()) as cursor,
         ):
@@ -55,7 +58,7 @@ class SQLiteDomainAdapter(DomainPort):
         if filter_.status is not None:
             status = filter_.status.value
 
-        with self._connection, closing(self._connection.cursor()) as cursor:
+        with self._lock, self._connection, closing(self._connection.cursor()) as cursor:
             cursor.row_factory = Row
             # Количество и страница должны читаться из одного снимка данных.
             if not self._connection.in_transaction:
@@ -95,7 +98,7 @@ class SQLiteDomainAdapter(DomainPort):
             return ()
 
         placeholders = ", ".join(["?"] * len(names))
-        with closing(self._connection.cursor()) as cursor:
+        with self._lock, closing(self._connection.cursor()) as cursor:
             cursor.row_factory = Row
             cursor.execute(
                 f"""
@@ -125,7 +128,7 @@ class SQLiteDomainAdapter(DomainPort):
             status = expected_status.value
 
         try:
-            with self._connection, closing(self._connection.cursor()) as cursor:
+            with self._lock, self._connection, closing(self._connection.cursor()) as cursor:
                 cursor.execute(
                     """
                     UPDATE domains
@@ -162,7 +165,7 @@ class SQLiteDomainAdapter(DomainPort):
         if expected_status is not None:
             status = expected_status.value
 
-        with self._connection, closing(self._connection.cursor()) as cursor:
+        with self._lock, self._connection, closing(self._connection.cursor()) as cursor:
             cursor.execute(
                 "DELETE FROM domains WHERE id = ? AND status = COALESCE(?, status)",
                 (domain_id, status),

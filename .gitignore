@@ -1,3 +1,7 @@
 .venv/
 __pycache__/
 *.pyc
+domains.sqlite3
+domains.sqlite3-journal
+domains.sqlite3-wal
+domains.sqlite3-shm

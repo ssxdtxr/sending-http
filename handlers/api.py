@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from starlette.types import Lifespan
 
 from domain.models.domain import DomainError, DomainStatus
 from domain.models.request import RequestError
@@ -11,13 +12,18 @@ from handlers.domains import create_domain_list_router, create_domain_status_rou
 from handlers.requests import create_request_router
 
 
-def create_app(domains: DomainService, requests: RequestService) -> FastAPI:
+def create_app(
+    domains: DomainService,
+    requests: RequestService,
+    *,
+    lifespan: Lifespan[FastAPI] | None = None,
+) -> FastAPI:
     """Собрать HTTP-слой из готовых сервисов.
 
     Синхронные обработчики выполняются в рабочих потоках FastAPI.
     Передаваемые сервисы и их адаптеры должны поддерживать такой вызов.
     """
-    app = FastAPI(title="Сервис безопасных HTTP-запросов")
+    app = FastAPI(title="Сервис безопасных HTTP-запросов", lifespan=lifespan)
     app.include_router(
         create_domain_list_router("/api/allowed-domains", DomainStatus.ALLOWED, domains)
     )
